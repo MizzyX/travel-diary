@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { PhotoThumb } from '../components/PhotoThumb'
-import { CloudButton, CloudCard } from '../components/CloudPanel'
+import { CloudButton } from '../components/CloudPanel'
 import { Empty, Field, Modal, PageHeader } from '../components/ui'
 import { useToast } from '../components/Toast'
 import { buildBackup } from '../lib/backup'
@@ -222,8 +222,6 @@ export function Home() {
           })}
         </div>
       )}
-
-      <CloudCard />
 
       <div className="mt-6 card p-4">
         <h3 className="mb-2 text-sm font-semibold text-slate-700">数据备份</h3>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import QRCode from 'qrcode'
 import { Field, Modal } from './ui'
@@ -22,6 +23,13 @@ export function CloudPanel({ open, onClose }: { open: boolean; onClose: () => vo
   const [showConfig, setShowConfig] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const [qr, setQr] = useState<string | null>(null)
+  const [publicUrl, setPublicUrl] = useState(() => {
+    try {
+      return localStorage.getItem('travel-diary:public-url') ?? ''
+    } catch {
+      return ''
+    }
+  })
 
   const run = async (fn: () => Promise<void>, ok?: string) => {
     setBusy(true)
@@ -35,9 +43,21 @@ export function CloudPanel({ open, onClose }: { open: boolean; onClose: () => vo
     }
   }
 
-  const appUrl = window.location.origin + window.location.pathname
+  // 优先使用用户填写的公网 HTTPS 地址（本机 localhost 手机扫不到）
+  const appUrl = publicUrl.trim() || window.location.origin + window.location.pathname
   // 二维码里带上云端配置，手机扫码后无需再填 URL / key
   const shareUrl = cloud.config ? buildConfigLink(appUrl, cloud.config) : appUrl
+
+  const changePublicUrl = (v: string) => {
+    setPublicUrl(v)
+    try {
+      localStorage.setItem('travel-diary:public-url', v.trim())
+    } catch {
+      // ignore
+    }
+    setQr(null)
+    setShowQr(false)
+  }
 
   const copyLink = async () => {
     try {
@@ -272,22 +292,34 @@ export function CloudPanel({ open, onClose }: { open: boolean; onClose: () => vo
                 <div className="font-medium text-slate-700">📱 手机扫码打开</div>
                 <div className="text-slate-500">手机浏览器打开后用<b>同一邮箱</b>登录，数据自动同步</div>
               </div>
-              <button className="btn-ghost shrink-0 px-2.5 py-1.5 text-xs" onClick={() => void toggleQr()}>
-                {showQr ? '收起二维码' : '生成二维码'}
-              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              <Field label="公网地址（部署后的 HTTPS 网址，留空则用当前页面地址）">
+                <input
+                  className="input text-xs"
+                  value={publicUrl}
+                  onChange={(e) => changePublicUrl(e.target.value)}
+                  placeholder="https://xxxx.codebuddy.cloudstudio.run"
+                />
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-primary px-2.5 py-1.5 text-xs" onClick={() => void toggleQr()}>
+                  {showQr ? '收起二维码' : '生成二维码'}
+                </button>
+                <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => void copyLink()}>
+                  复制带配置的链接
+                </button>
+              </div>
             </div>
             {showQr && qr && (
               <div className="mt-3 flex flex-col items-center gap-2">
                 <img src={qr} alt="扫码打开本应用" className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-1" />
                 <p className="break-all text-center text-[11px] text-slate-500">{appUrl}</p>
-                <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => void copyLink()}>
-                  复制带配置的链接
-                </button>
                 {appUrl.startsWith('https://') ? (
                   <p className="text-[11px] text-slate-500">HTTPS 已就绪：手机上可记录 GPS 足迹、拍照上传、添加到主屏幕。</p>
                 ) : (
                   <p className="text-[11px] text-amber-700">
-                    当前是 http 网址，手机能看数据但 GPS 定位会被浏览器拒绝。部署到 HTTPS 后扫码即可记录足迹。
+                    当前是 http 网址，手机能看数据但 GPS 定位会被浏览器拒绝。请先填写上面的公网 HTTPS 地址。
                   </p>
                 )}
               </div>
@@ -305,36 +337,7 @@ export function CloudPanel({ open, onClose }: { open: boolean; onClose: () => vo
   )
 }
 
-/** 首页的云同步卡片 */
-export function CloudCard() {
-  const cloud = useCloud()
-  const [open, setOpen] = useState(false)
-
-  const summary =
-    cloud.status === 'ready'
-      ? `已登录 ${cloud.user?.email ?? ''} · ${cloud.syncing ? '同步中…' : cloud.lastSyncAt ? `上次同步 ${formatDateTime(cloud.lastSyncAt)}` : '等待同步'}`
-      : cloud.status === 'signed-out'
-        ? '已配置云端，登录后开始多设备同步'
-        : '开启后手机 / 电脑登录同一账号即可自动同步（含 GPS 足迹与照片）'
-
-  return (
-    <div className="mt-6 card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-slate-700">☁️ 账户与云同步</h3>
-          <p className="mt-1 break-words text-xs text-slate-500">{summary}</p>
-          {cloud.error && <p className="mt-1 text-xs text-rose-600">{cloud.error}</p>}
-        </div>
-        <button className="btn-ghost shrink-0 px-2.5 py-1.5 text-xs" onClick={() => setOpen(true)}>
-          {cloud.status === 'ready' ? '管理' : '开启'}
-        </button>
-      </div>
-      <CloudPanel open={open} onClose={() => setOpen(false)} />
-    </div>
-  )
-}
-
-/** 顶部的小同步按钮：点开云同步面板 */
+/** 顶部的小同步按钮：点开云同步面板（portal 渲染，避免被顶栏 backdrop-blur 裁切） */
 export function CloudButton({ className, children }: { className?: string; children?: ReactNode }) {
   const cloud = useCloud()
   const [open, setOpen] = useState(false)
@@ -353,7 +356,11 @@ export function CloudButton({ className, children }: { className?: string; child
         <span className={tone}>{cloud.status === 'ready' ? (cloud.syncing ? '🔄' : '☁️') : '☁️'}</span>
         {children}
       </button>
-      <CloudPanel open={open} onClose={() => setOpen(false)} />
+      {open &&
+        createPortal(
+          <CloudPanel open onClose={() => setOpen(false)} />,
+          document.body
+        )}
     </>
   )
 }
