@@ -1,8 +1,17 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import L from 'leaflet'
 import { usePhotoUrls } from '../state/photoUrl'
 import { boundsOf } from '../lib/geo'
+import {
+  TILE_SOURCES,
+  getTileSource,
+  loadTileSourceId,
+  nextTileSourceId,
+  saveTileSourceId,
+  toMapCoords
+} from '../lib/tiles'
+import { useToast } from './Toast'
 import { cx, formatClock } from '../lib/utils'
 import type { LatLng } from '../lib/geo'
 import type { Photo, Track } from '../types'
@@ -48,14 +57,28 @@ export function MapView({
   autoFit = true,
   children
 }: Props) {
+  const toast = useToast()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const overlayRef = useRef<L.LayerGroup | null>(null)
   const liveMarkerRef = useRef<L.CircleMarker | null>(null)
   const pointsRef = useRef<LatLng[]>([])
   const latestRef = useRef({ tracks, photos, planPoints, layers, livePoint })
+  const [tileId, setTileId] = useState(() => loadTileSourceId())
+  const tileErrRef = useRef(0)
+  const switchedRef = useRef(false)
+  const source = getTileSource(tileId)
+  const sourceRef = useRef(source)
+  sourceRef.current = source
 
   latestRef.current = { tracks, photos, planPoints, layers, livePoint }
+
+  const chooseTile = (id: string) => {
+    tileErrRef.current = 0
+    switchedRef.current = false
+    setTileId(id)
+    saveTileSourceId(id)
+  }
 
   const photoIds = useMemo(() => photos.map((p) => p.id), [photos])
   const thumbs = usePhotoUrls(photoIds, 'thumb')
@@ -78,10 +101,6 @@ export function MapView({
     const el = containerRef.current
     if (!el || mapRef.current) return
     const map = L.map(el, { zoomControl: true, attributionControl: true, center: [30, 110], zoom: 4 })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-      maxZoom: 19
-    }).addTo(map)
     mapRef.current = map
     overlayRef.current = L.layerGroup().addTo(map)
     onMapReady?.(map)
@@ -96,6 +115,37 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 底图瓦片：加载失败时自动切换到下一个源
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const layer = L.tileLayer(source.url, {
+      attribution: source.attribution,
+      maxZoom: source.maxZoom,
+      subdomains: source.subdomains.length ? source.subdomains : 'abc'
+    })
+    layer.addTo(map)
+    layer.on('tileerror', () => {
+      tileErrRef.current += 1
+      if (tileErrRef.current >= 4 && !switchedRef.current) {
+        switchedRef.current = true
+        const next = nextTileSourceId(source.id)
+        if (next !== source.id) {
+          saveTileSourceId(next)
+          setTileId(next)
+          toast.show('地图瓦片加载不出来，已自动换用其他底图', 'err')
+        }
+      }
+    })
+    layer.on('tileload', () => {
+      tileErrRef.current = 0
+    })
+    return () => {
+      layer.off()
+      layer.remove()
+    }
+  }, [source, toast])
+
   // 绘制图层
   useEffect(() => {
     const map = mapRef.current
@@ -104,14 +154,20 @@ export function MapView({
     group.clearLayers()
 
     const pts: LatLng[] = []
+    const projection = sourceRef.current.projection
+    const conv = (p: LatLng): [number, number] => toMapCoords(p, projection)
+    const convLatLng = (p: LatLng): LatLng => {
+      const [lat, lng] = conv(p)
+      return { lat, lng }
+    }
     const drawnTracks = latestRef.current.layers.tracks ? tracks : []
     const drawnPhotos = latestRef.current.layers.photos ? photos : []
     const drawnPlans = latestRef.current.layers.plans ? planPoints : []
 
     drawnTracks.forEach((track, idx) => {
       if (track.points.length < 2) return
-      const latlngs = track.points.map((p) => [p.lat, p.lng] as [number, number])
-      pts.push(...track.points)
+      const latlngs = track.points.map(conv)
+      pts.push(...track.points.map(convLatLng))
       const color = COLORS[idx % COLORS.length]
       L.polyline(latlngs, { color, weight: 4, opacity: 0.85 })
         .bindTooltip(`${track.name} · ${(track.distance / 1000).toFixed(2)} km`, { sticky: true })
@@ -128,7 +184,8 @@ export function MapView({
 
     for (const p of drawnPhotos) {
       if (p.lat == null || p.lng == null) continue
-      pts.push({ lat: p.lat, lng: p.lng })
+      const pp = convLatLng({ lat: p.lat, lng: p.lng })
+      pts.push(pp)
       const url = thumbs[p.id]
       const popup =
         `<div style="width:150px">` +
@@ -137,7 +194,7 @@ export function MapView({
         `<div style="font-weight:600">${esc(p.caption || '照片')}</div>` +
         `<div style="color:#94a3b8">${new Date(p.takenAt).toLocaleDateString('zh-CN')} ${formatClock(p.takenAt)}</div>` +
         `</div></div>`
-      L.marker([p.lat, p.lng], {
+      L.marker([pp.lat, pp.lng], {
         icon: L.divIcon({
           className: '',
           iconSize: [32, 32],
@@ -150,8 +207,9 @@ export function MapView({
     }
 
     for (const p of drawnPlans) {
-      pts.push({ lat: p.lat, lng: p.lng })
-      L.marker([p.lat, p.lng], {
+      const lp = convLatLng(p)
+      pts.push(lp)
+      L.marker([lp.lat, lp.lng], {
         icon: L.divIcon({
           className: '',
           iconSize: [28, 28],
@@ -166,18 +224,19 @@ export function MapView({
     }
 
     pointsRef.current = pts
-  }, [tracks, photos, planPoints, thumbs, layers.tracks, layers.photos, layers.plans])
+  }, [tracks, photos, planPoints, thumbs, layers.tracks, layers.photos, layers.plans, source.projection])
 
   // 自动缩放到内容范围
   useEffect(() => {
     const map = mapRef.current
     if (!map || !autoFit) return
     const pts = pointsRef.current
-    const lp = latestRef.current.livePoint
-    const bounds = boundsOf(lp ? [...pts, lp] : pts)
+    const raw = latestRef.current.livePoint
+    const lp = raw ? toMapCoords(raw, sourceRef.current.projection) : null
+    const bounds = boundsOf(lp ? [...pts, { lat: lp[0], lng: lp[1] }] : pts)
     if (bounds) map.fitBounds(bounds, { padding: [36, 36], maxZoom: 16 })
-    else if (lp) map.setView([lp.lat, lp.lng], 15)
-  }, [fitKey, autoFit])
+    else if (lp) map.setView(lp, 15)
+  }, [fitKey, autoFit, source.projection])
 
   // 当前位置标记
   useEffect(() => {
@@ -188,18 +247,35 @@ export function MapView({
       liveMarkerRef.current = null
     }
     if (!livePoint) return
-    liveMarkerRef.current = L.circleMarker([livePoint.lat, livePoint.lng], {
+    const [lat, lng] = toMapCoords(livePoint, sourceRef.current.projection)
+    liveMarkerRef.current = L.circleMarker([lat, lng], {
       radius: 7,
       color: '#fff',
       weight: 3,
       fillColor: '#10b981',
       fillOpacity: 1
     }).addTo(map)
-  }, [livePoint])
+  }, [livePoint, source.projection])
 
   return (
     <div className={cx('relative overflow-hidden rounded-2xl border border-slate-200', className)} style={{ height }}>
       <div ref={containerRef} className="h-full w-full" />
+      <div className="absolute right-2 top-2 z-[500] flex overflow-hidden rounded-lg border border-slate-200 bg-white/95 text-[11px] shadow-sm">
+        {TILE_SOURCES.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => chooseTile(s.id)}
+            className={cx(
+              'px-2 py-1 transition',
+              s.id === tileId ? 'bg-brand-600 font-medium text-white' : 'text-slate-500 hover:bg-slate-50'
+            )}
+            title={s.id === tileId ? `当前底图：${s.label}` : `切换到${s.label}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
       {children}
     </div>
   )
