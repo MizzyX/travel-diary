@@ -1,0 +1,82 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+    /* 移动端禁止整页橡皮筋滚动影响地图手势 */
+    overscroll-behavior-y: none;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200/70 bg-white shadow-card;
+  }
+  .btn {
+    @apply inline-flex min-h-[38px] select-none items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition active:scale-[.98] disabled:opacity-40 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-ghost {
+    @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+  }
+  .btn-danger {
+    @apply btn border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium text-slate-500;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+  }
+}
+
+/* Leaflet 细节打磨 */
+.leaflet-container {
+  @apply bg-slate-100 font-sans;
+  z-index: 0;
+}
+.leaflet-div-icon {
+  background: transparent;
+  border: none;
+}
+.photo-pin {
+  @apply h-9 w-9 rounded-full border-2 border-white shadow-md;
+  background-size: cover;
+  background-position: center;
+}
+.leaflet-popup-content-wrapper {
+  @apply rounded-xl;
+}
+.leaflet-popup-content {
+  @apply m-0 p-0 text-slate-800;
+}

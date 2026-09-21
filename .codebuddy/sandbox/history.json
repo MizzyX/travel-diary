@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "spaceKey": "b7e0c25562ee4f638b8dbccb972507c4",
+      "projectPath": "c:\\Users\\Lenovo\\CodeBuddy\\20260921133205\\dist",
+      "desc": "旅行日记 · 多端同步（行程 / 日记 / 照片 / 记账 / GPS 足迹，Supabase 云同步）",
+      "createdAt": 1789981122430
+    },
+    {
+      "spaceKey": "60301d053ec8471da558a81a59983767",
+      "projectPath": "c:\\Users\\Lenovo\\CodeBuddy\\20260921133205\\dist",
+      "desc": "旅行日记 · 多端同步（行程 / 日记 / 照片 / 记账 / GPS 足迹，Supabase 云同步，支持扫码配网）",
+      "createdAt": 1789981237726
+    },
+    {
+      "spaceKey": "ee2ce9377d3d422a8421f802f4c7d061",
+      "projectPath": "c:\\Users\\Lenovo\\CodeBuddy\\20260921133205\\dist",
+      "desc": "旅行日记 · 多端同步（行程 / 日记 / 照片 / 记账 / GPS 足迹，Supabase 云同步，支持按旅行导出备份、扫码配网）",
+      "createdAt": 1789981794816
+    }
+  ]
+}

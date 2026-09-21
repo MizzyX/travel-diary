@@ -1,0 +1,16 @@
+{
+  "name": "旅行日记 Travel Diary",
+  "short_name": "旅行日记",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzEwYjk4MSIgcng9IjI4Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTY0IDI2YTExIDExIDAgMCAwLTExIDExYzAgNy4zIDYuNiAxNi4zIDExIDIyIDQuNC01LjcgMTEtMTQuNyAxMS0yMmExMSAxMSAwIDAgMC0xMS0xMXptMCAzMmMtMTMuMyAwLTI0IDEwLjctMjQgMjRoNDhjMC0xMy4zLTEwLjctMjQtMjQtMjR6Ii8+PC9zdmc+",
+      "sizes": "128x128",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
