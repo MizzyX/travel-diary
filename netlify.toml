@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# 前端使用 hash 路由，兜底回退到 index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
