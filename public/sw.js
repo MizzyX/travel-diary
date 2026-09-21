@@ -5,7 +5,7 @@
  *   3. 第三方资源（地图瓦片 / Leaflet CDN）：cache-first
  *   4. 汇率等接口：只用网络，失败时回落到上次缓存
  */
-const VERSION = 'v1.0.0'
+const VERSION = 'v1.0.2'
 const SHELL_CACHE = `td-shell-${VERSION}`
 const STATIC_CACHE = `td-static-${VERSION}`
 const MEDIA_CACHE = `td-media-${VERSION}`
